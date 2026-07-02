@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PressPDF — Kompres PDF Lokal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F7F6F2;
+    --ink:#14213D;
+    --ink-soft:#5A6478;
+    --line:#DBD8CE;
+    --accent:#0E7C66;
+    --accent-soft:#E3F1ED;
+    --warn:#B4552D;
+    --card:#FFFFFF;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding:32px 20px 64px;
+  }
+  .wrap{max-width:680px;margin:0 auto}
+
+  header{margin-bottom:28px}
+  .brand{
+    font-family:'Archivo',sans-serif;font-weight:800;font-size:28px;
+    letter-spacing:-0.5px;display:flex;align-items:center;gap:10px;
+  }
+  .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block}
+  .tagline{color:var(--ink-soft);font-size:14px;margin-top:6px;line-height:1.5}
+  .tagline strong{color:var(--ink)}
+
+  /* Drop zone */
+  #drop{
+    border:2px dashed var(--line);
+    border-radius:var(--radius);
+    background:var(--card);
+    padding:44px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  #drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop h2{font-family:'Archivo',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px}
+  #drop p{color:var(--ink-soft);font-size:13px}
+  #drop .icon{font-size:34px;margin-bottom:10px}
+  #fileInput{display:none}
+
+  /* Level picker */
+  .levels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
+  .level{
+    background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);
+    padding:14px 12px;cursor:pointer;transition:border-color .15s;
+  }
+  .level input{display:none}
+  .level.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .level b{font-family:'Archivo',sans-serif;font-size:14px;display:block;margin-bottom:4px}
+  .level span{font-size:12px;color:var(--ink-soft);line-height:1.4;display:block}
+  .level:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* File cards */
+  .file{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:12px;
+  }
+  .file-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .fname{font-weight:600;font-size:14px;word-break:break-all}
+  .fmeta{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);white-space:nowrap}
+  .progress{height:6px;background:var(--paper);border-radius:99px;margin-top:12px;overflow:hidden}
+  .progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .2s}
+  .status{font-size:12px;color:var(--ink-soft);margin-top:8px}
+
+  /* Receipt result */
+  .receipt{
+    margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);
+    display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  }
+  .sizes{font-family:'JetBrains Mono',monospace;font-size:13px}
+  .sizes .before{text-decoration:line-through;color:var(--ink-soft)}
+  .sizes .arrow{margin:0 6px;color:var(--ink-soft)}
+  .sizes .after{font-weight:600}
+  .saved{
+    font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;
+    color:var(--accent);background:var(--accent-soft);
+    padding:3px 10px;border-radius:99px;
+  }
+  .saved.neg{color:var(--warn);background:#F6E8E1}
+  .dl{
+    font-family:'Archivo',sans-serif;font-weight:700;font-size:13px;
+    background:var(--ink);color:#fff;border:none;border-radius:10px;
+    padding:9px 16px;cursor:pointer;transition:opacity .15s;
+  }
+  .dl:hover{opacity:.85}
+  .dl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .err{color:var(--warn);font-size:13px;margin-top:8px}
+
+  .actions{display:flex;gap:10px;margin:8px 0 20px}
+  .btn-sec{
+    font-family:'Archivo',sans-serif;font-weight:700;font-size:13px;
+    background:transparent;color:var(--ink);border:1.5px solid var(--line);
+    border-radius:10px;padding:9px 16px;cursor:pointer;
+  }
+  .btn-sec:hover{border-color:var(--ink)}
+
+  footer{margin-top:36px;font-size:12px;color:var(--ink-soft);line-height:1.6}
+  footer b{color:var(--ink)}
+
+  @media (max-width:520px){ .levels{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="dot"></span>PressPDF</div>
+    <p class="tagline">Kompres PDF <strong>100% di browser kamu</strong> — file tidak pernah di-upload ke mana pun. Tutup tab, semuanya hilang.</p>
+  </header>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Pilih atau jatuhkan file PDF">
+    <div class="icon">📄</div>
+    <h2>Jatuhkan PDF di sini</h2>
+    <p>atau klik untuk memilih file · bisa banyak file sekaligus</p>
+    <input type="file" id="fileInput" accept="application/pdf" multiple>
+  </div>
+
+  <div class="levels" role="radiogroup" aria-label="Tingkat kompresi">
+    <label class="level" tabindex="0" data-level="low">
+      <input type="radio" name="lv" value="low">
+      <b>Kompresi Ringan</b><span>Kualitas paling tajam, ukuran turun sedikit</span>
+    </label>
+    <label class="level active" tabindex="0" data-level="rec">
+      <input type="radio" name="lv" value="rec" checked>
+      <b>Rekomendasi</b><span>Seimbang — mirip mode default iLovePDF</span>
+    </label>
+    <label class="level" tabindex="0" data-level="extreme">
+      <input type="radio" name="lv" value="extreme">
+      <b>Ekstrem</b><span>Ukuran sekecil mungkin, kualitas menurun</span>
+    </label>
+  </div>
+
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn-sec" id="dlAll">Unduh Semua</button>
+    <button class="btn-sec" id="clearAll">Bersihkan Daftar</button>
+  </div>
+
+  <div id="list"></div>
+
+  <footer>
+    <b>Catatan:</b> kompresi dilakukan dengan me-render ulang tiap halaman sebagai gambar JPEG
+    (teknik yang sama dipakai mode "extreme" di banyak layanan online). Konsekuensinya, teks di hasil
+    kompresi <b>tidak bisa di-select/copy</b> lagi. Untuk arsip pribadi, nota, atau scan — ini ideal.
+    Untuk dokumen yang teksnya masih perlu diedit, simpan juga file aslinya.
+  </footer>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const LEVELS = {
+  low:     { scale: 1.6, quality: 0.82 },
+  rec:     { scale: 1.15, quality: 0.62 },
+  extreme: { scale: 0.85, quality: 0.45 }
+};
+
+const drop      = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const list      = document.getElementById('list');
+const actions   = document.getElementById('actions');
+const results   = []; // {name, blob}
+
+let currentLevel = 'rec';
+
+/* ---------- level picker ---------- */
+document.querySelectorAll('.level').forEach(el => {
+  const pick = () => {
+    document.querySelectorAll('.level').forEach(l => l.classList.remove('active'));
+    el.classList.add('active');
+    el.querySelector('input').checked = true;
+    currentLevel = el.dataset.level;
+  };
+  el.addEventListener('click', pick);
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+});
+
+/* ---------- drop zone ---------- */
+drop.addEventListener('click', () => fileInput.click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener('change', () => { handleFiles(fileInput.files); fileInput.value = ''; });
+
+['dragover','dragenter'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+
+function handleFiles(files) {
+  [...files].filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))
+            .forEach(f => compressFile(f, LEVELS[currentLevel]));
+}
+
+/* ---------- helpers ---------- */
+const fmt = b => b < 1024*1024
+  ? (b/1024).toFixed(1) + ' KB'
+  : (b/(1024*1024)).toFixed(2) + ' MB';
+
+function makeCard(name, size) {
+  const card = document.createElement('div');
+  card.className = 'file';
+  card.innerHTML = `
+    <div class="file-head">
+      <div class="fname">${name.replace(/</g,'&lt;')}</div>
+      <div class="fmeta">${fmt(size)}</div>
+    </div>
+    <div class="progress"><i></i></div>
+    <div class="status">Menyiapkan…</div>`;
+  list.prepend(card);
+  return {
+    card,
+    bar: card.querySelector('.progress i'),
+    status: card.querySelector('.status')
+  };
+}
+
+/* ---------- core compression ---------- */
+async function compressFile(file, opt) {
+  const ui = makeCard(file.name, file.size);
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const total = pdf.numPages;
+
+    const { jsPDF } = window.jspdf;
+    let out = null;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    for (let i = 1; i <= total; i++) {
+      const page = await pdf.getPage(i);
+      const vpPt = page.getViewport({ scale: 1 });          // ukuran asli (pt)
+      const vp   = page.getViewport({ scale: opt.scale });   // resolusi render
+
+      canvas.width  = vp.width;
+      canvas.height = vp.height;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+      const img = canvas.toDataURL('image/jpeg', opt.quality);
+      const orient = vpPt.width > vpPt.height ? 'l' : 'p';
+
+      if (!out) out = new jsPDF({ unit: 'pt', format: [vpPt.width, vpPt.height], orientation: orient });
+      else out.addPage([vpPt.width, vpPt.height], orient);
+
+      out.addImage(img, 'JPEG', 0, 0, vpPt.width, vpPt.height);
+      page.cleanup();
+
+      ui.bar.style.width = Math.round(i / total * 100) + '%';
+      ui.status.textContent = `Memproses halaman ${i} / ${total}…`;
+      await new Promise(r => setTimeout(r, 0)); // biar UI tetap responsif
+    }
+    canvas.width = canvas.height = 0;
+
+    const blob = out.output('blob');
+    const outName = file.name.replace(/\.pdf$/i, '') + '-kompres.pdf';
+    results.push({ name: outName, blob });
+    actions.style.display = 'flex';
+
+    const pct = Math.round((1 - blob.size / file.size) * 100);
+    ui.status.remove();
+    const receipt = document.createElement('div');
+    receipt.className = 'receipt';
+    receipt.innerHTML = `
+      <div class="sizes">
+        <span class="before">${fmt(file.size)}</span><span class="arrow">→</span><span class="after">${fmt(blob.size)}</span>
+      </div>
+      <span class="saved ${pct <= 0 ? 'neg' : ''}">${pct > 0 ? '-' + pct + '%' : '+' + Math.abs(pct) + '%'}</span>
+      <button class="dl">Unduh</button>`;
+    ui.card.appendChild(receipt);
+    ui.bar.parentElement.remove();
+
+    if (pct <= 0) {
+      const note = document.createElement('div');
+      note.className = 'err';
+      note.textContent = 'File ini justru membesar — kemungkinan sudah teroptimasi. Coba mode Ekstrem, atau pakai file aslinya saja.';
+      ui.card.appendChild(note);
+    }
+
+    receipt.querySelector('.dl').addEventListener('click', () => saveBlob(blob, outName));
+
+  } catch (err) {
+    ui.bar.parentElement.remove();
+    ui.status.className = 'err';
+    ui.status.textContent = /password/i.test(err.message || '')
+      ? 'PDF ini terkunci password — buka proteksinya dulu.'
+      : 'Gagal memproses file ini: ' + (err.message || err);
+  }
+}
+
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+document.getElementById('dlAll').addEventListener('click', () => {
+  results.forEach((r, i) => setTimeout(() => saveBlob(r.blob, r.name), i * 350));
+});
+document.getElementById('clearAll').addEventListener('click', () => {
+  list.innerHTML = ''; results.length = 0; actions.style.display = 'none';
+});
+</script>
+</body>
+</html>
